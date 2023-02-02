@@ -1,14 +1,29 @@
 #![no_main]
 #![no_std]
+#![feature(asm)]
+#![feature(naked_functions)]
 
 use core::ptr;
 use core::panic::PanicInfo;
+use core::mem::MaybeUninit;
 use cortex_m_semihosting::hprintln;
 
 mod systick;
 
+mod process;
+use process::ContextFrame;
+
+//#[repr(align(8))]
+//struct AlignedStack(MaybeUninit<[u8; 1024]>);
+
 #[no_mangle]
 pub unsafe extern "C" fn Reset() -> ! {
+    #[link_section = ".app_stack"]
+    //static mut APP_STACK: AlignedStack = AlignedStack(MaybeUninit::uninit());
+    //let ptr = (&APP_STACK[0] as *const u8 as usize) + 1024 - 0x20;
+    static mut APP_STACK: [u8; 1024] = [0; 1024];
+    let ptr = (&APP_STACK[0] as *const u8 as usize) + 1024 - 0x20;
+    let context_frame: &mut ContextFrame = &mut *(ptr as *mut ContextFrame);
     extern "C" {
         static mut _sbss: u8;
         static mut _ebss: u8;
@@ -49,7 +64,6 @@ extern "C" {
     fn MemManage();
     fn BusFault();
     fn UsageFault();
-    fn SVCall();
     fn PendSV();
 }
 
@@ -82,4 +96,29 @@ pub extern "C" fn DefaultExceptionHandler() {
 #[no_mangle]
 pub extern "C" fn SysTick() {
     hprintln!("Sysick").unwrap();
+}
+
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn SVCall() {
+    asm!(
+        "cmp lr, #0xfffffff9",
+        "bne 1f",
+
+        "mov r0, #1",
+        "msr CONTROL, r0",
+        "isb",
+        "movw lr, #0xfffd",
+        "movt lr, #0xffff",
+        "bx lr",
+
+        "1:",
+        "mov r0, #0",
+        "msr CONTROL, r0",
+        "isb",
+        "movw lr, #0xfff9",
+        "movt lr, #0xffff",
+        "bx lr",
+        options(noreturn),
+    );
 }
