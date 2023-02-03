@@ -1,8 +1,8 @@
 #![no_main]
 #![no_std]
-#![feature(asm)]
 #![feature(naked_functions)]
 
+use core::arch::asm;
 use core::ptr;
 use core::panic::PanicInfo;
 use core::mem::MaybeUninit;
@@ -13,17 +13,11 @@ mod systick;
 mod process;
 use process::ContextFrame;
 
-//#[repr(align(8))]
-//struct AlignedStack(MaybeUninit<[u8; 1024]>);
+#[repr(align(8))]
+struct AlignedStack(MaybeUninit<[u8; 1024]>);
 
 #[no_mangle]
 pub unsafe extern "C" fn Reset() -> ! {
-    #[link_section = ".app_stack"]
-    //static mut APP_STACK: AlignedStack = AlignedStack(MaybeUninit::uninit());
-    //let ptr = (&APP_STACK[0] as *const u8 as usize) + 1024 - 0x20;
-    static mut APP_STACK: [u8; 1024] = [0; 1024];
-    let ptr = (&APP_STACK[0] as *const u8 as usize) + 1024 - 0x20;
-    let context_frame: &mut ContextFrame = &mut *(ptr as *mut ContextFrame);
     extern "C" {
         static mut _sbss: u8;
         static mut _ebss: u8;
@@ -40,6 +34,24 @@ pub unsafe extern "C" fn Reset() -> ! {
     hprintln!("Hello World").unwrap();
 
     systick::init();
+
+    #[link_section = ".app_stack"]
+    static mut APP_STACK: AlignedStack = AlignedStack(MaybeUninit::uninit());
+    let ptr = (APP_STACK.0.as_ptr() as *const u8 as usize) + 1024 - 0x20;
+    //#[link_section = ".app_stack"]
+    //static mut APP_STACK: [u8; 1024] = [0; 1024];
+    //let ptr = (&APP_STACK[0] as *const u8 as usize) + 1024 - 0x20;
+    let context_frame: &mut ContextFrame = &mut *(ptr as *mut ContextFrame);
+    context_frame.r0 = 0;
+    context_frame.r1 = 0;
+    context_frame.r2 = 0;
+    context_frame.r3 = 0;
+    context_frame.r12 = 0;
+    context_frame.lr = 0;
+    context_frame.return_addr = app_main as u32;
+    context_frame.xpsr = 0x0100_0000;
+
+    asm_execute_process(ptr);
 
     loop {}
 }
@@ -121,4 +133,14 @@ pub unsafe extern "C" fn SVCall() {
         "bx lr",
         options(noreturn),
     );
+}
+
+extern "C" fn app_main() -> ! {
+    hprintln!("App").unwrap();
+    unsafe { asm!("svc 0"); }
+    loop {}
+}
+
+extern "C" {
+    fn asm_execute_process(sp: usize);
 }
