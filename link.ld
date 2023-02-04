@@ -50,7 +50,7 @@ SECTIONS
 
   _sidata = LOADADDR(.data);
 
-  .app_stack ALIGN(0x10):
+  .app_stack ALIGN(0x08):
   {
     *(.app_stack .app_stack.*);
   } > RAM

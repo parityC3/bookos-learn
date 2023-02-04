@@ -9,12 +9,15 @@ use core::mem::MaybeUninit;
 use cortex_m_semihosting::hprintln;
 
 mod systick;
-
 mod process;
 use process::ContextFrame;
 
 #[repr(align(8))]
 struct AlignedStack(MaybeUninit<[u8; 1024]>);
+
+const CFSR_ADDR: usize = 0xE000_ED28;
+const SHCSR_ADDR: usize = 0xE000_ED24;
+const HFSR_ADDR: usize = 0xE000_ED2C;
 
 #[no_mangle]
 pub unsafe extern "C" fn Reset() -> ! {
@@ -37,11 +40,10 @@ pub unsafe extern "C" fn Reset() -> ! {
 
     #[link_section = ".app_stack"]
     static mut APP_STACK: AlignedStack = AlignedStack(MaybeUninit::uninit());
+    hprintln!("APP_STACK ptr:{:p}", &APP_STACK).unwrap();
     let ptr = (APP_STACK.0.as_ptr() as *const u8 as usize) + 1024 - 0x20;
-    //#[link_section = ".app_stack"]
-    //static mut APP_STACK: [u8; 1024] = [0; 1024];
-    //let ptr = (&APP_STACK[0] as *const u8 as usize) + 1024 - 0x20;
     let context_frame: &mut ContextFrame = &mut *(ptr as *mut ContextFrame);
+    hprintln!("context_frame ptr:{:p}", context_frame).unwrap();
     context_frame.r0 = 0;
     context_frame.r1 = 0;
     context_frame.r2 = 0;
@@ -51,6 +53,9 @@ pub unsafe extern "C" fn Reset() -> ! {
     context_frame.return_addr = app_main as u32;
     context_frame.xpsr = 0x0100_0000;
 
+    hprintln!("CFSR:{:X}", ptr::read_volatile(CFSR_ADDR as *mut u32)).unwrap();
+    hprintln!("SHCSR:{:X}", ptr::read_volatile(SHCSR_ADDR as *mut u32)).unwrap();
+    hprintln!("HFSR:{:X}", ptr::read_volatile(HFSR_ADDR as *mut u32)).unwrap();
     asm_execute_process(ptr);
 
     loop {}
@@ -68,15 +73,6 @@ fn panic(_panic: &PanicInfo<'_>) -> ! {
 pub union Vector {
     reserved: u32,
     handler: unsafe extern "C" fn(),
-}
-
-extern "C" {
-    fn NMI();
-    fn HardFault();
-    fn MemManage();
-    fn BusFault();
-    fn UsageFault();
-    fn PendSV();
 }
 
 #[link_section = ".vector_table.exceptions"]
@@ -102,12 +98,36 @@ pub static EXCEPTIONS: [Vector; 14] = [
 
 #[no_mangle]
 pub extern "C" fn DefaultExceptionHandler() {
+    hprintln!("DefaultException").unwrap();
     loop {}
 }
-
 #[no_mangle]
-pub extern "C" fn SysTick() {
-    hprintln!("Sysick").unwrap();
+pub extern "C" fn NMI() {
+    hprintln!("NMI").unwrap();
+    loop {}
+}
+#[no_mangle]
+pub unsafe extern "C" fn HardFault() {
+    hprintln!("HardFault").unwrap();
+    hprintln!("CFSR:{:X}", ptr::read_volatile(CFSR_ADDR as *mut u32)).unwrap();
+    hprintln!("SHCSR:{:X}", ptr::read_volatile(SHCSR_ADDR as *mut u32)).unwrap();
+    hprintln!("HFSR:{:X}", ptr::read_volatile(HFSR_ADDR as *mut u32)).unwrap();
+    loop {}
+}
+#[no_mangle]
+pub extern "C" fn MemManage() {
+    hprintln!("MemManage").unwrap();
+    loop {}
+}
+#[no_mangle]
+pub extern "C" fn BusFault() {
+    hprintln!("BusFault").unwrap();
+    loop {}
+}
+#[no_mangle]
+pub extern "C" fn UsageFault() {
+    hprintln!("UsageFault").unwrap();
+    loop {}
 }
 
 #[no_mangle]
@@ -135,6 +155,16 @@ pub unsafe extern "C" fn SVCall() {
     );
 }
 
+#[no_mangle]
+pub extern "C" fn PendSV() {
+    hprintln!("PendSV").unwrap();
+    loop {}
+}
+
+#[no_mangle]
+pub extern "C" fn SysTick() {
+    hprintln!("Sysick").unwrap();
+}
 extern "C" fn app_main() -> ! {
     hprintln!("App").unwrap();
     unsafe { asm!("svc 0"); }
