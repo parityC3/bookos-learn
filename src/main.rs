@@ -12,6 +12,8 @@ mod systick;
 mod process;
 use process::ContextFrame;
 
+mod linked_list;
+
 #[repr(align(8))]
 struct AlignedStack(MaybeUninit<[u8; 1024]>);
 
