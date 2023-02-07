@@ -18,6 +18,8 @@ use linked_list::ListItem;
 mod scheduler;
 use scheduler::Scheduler;
 
+mod led;
+
 const CFSR_ADDR: usize = 0xE000_ED28;
 const SHCSR_ADDR: usize = 0xE000_ED24;
 const HFSR_ADDR: usize = 0xE000_ED2C;
@@ -38,6 +40,12 @@ pub unsafe extern "C" fn Reset() -> ! {
     ptr::copy_nonoverlapping(&_sidata as *const u8, &mut _sdata as *mut u8, count);
 
     hprintln!("Hello World").unwrap();
+
+    led::init_led();
+    hprintln!("Set LED").unwrap();
+    led::set_led();
+    hprintln!("Clear LED").unwrap();
+    led::clear_led();
 
     systick::init();
 
