@@ -1,19 +1,23 @@
-use core::ptr::write_volatile;
+use crate::port::{PortA, Pin};
 
-pub fn init_led() {
-    unsafe {
-        write_volatile(0x4100_8020 as *mut u32, 1 << 15);
-    }
+pub struct LED<'a> {
+    pin: &'a Pin<PortA, 15>,
 }
 
-pub fn set_led() {
-    unsafe {
-        write_volatile(0x4100_8018 as *mut u32, 1 << 15);
+impl<'a> LED<'a> {
+    pub fn new(pin: &'a Pin<PortA, 15>) -> Self {
+        Self { pin }
     }
-}
 
-pub fn clear_led() {
-    unsafe {
-        write_volatile(0x4100_8014 as *mut u32, 1 << 15);
+    pub fn init(&self) {
+        self.pin.set_dir();
+    }
+
+    pub fn set(&self) {
+        self.pin.set_out();
+    }
+
+    pub fn clear(&self) {
+        self.pin.clear_out();
     }
 }

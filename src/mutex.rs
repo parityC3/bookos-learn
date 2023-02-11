@@ -58,4 +58,4 @@ impl<T> Mutex<T> {
     }
 }
 
-unsafe imple<T> Sync for Mutex<T> {}
+unsafe impl<T> Sync for Mutex<T> {}

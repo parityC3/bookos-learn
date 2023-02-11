@@ -19,6 +19,15 @@ mod scheduler;
 use scheduler::Scheduler;
 
 mod led;
+use led::LED;
+
+mod vcell;
+
+mod port;
+use port::{Port, PortA, PortC};
+
+mod button;
+use button::{Button1, Button2, Button3};
 
 const CFSR_ADDR: usize = 0xE000_ED28;
 const SHCSR_ADDR: usize = 0xE000_ED24;
@@ -41,11 +50,25 @@ pub unsafe extern "C" fn Reset() -> ! {
 
     hprintln!("Hello World").unwrap();
 
-    led::init_led();
+    let porta = Port::<PortA>::new();
+    let led = LED::new(&porta.pin15);
+    let portc = Port::<PortC>::new();
+    let button1 = Button1::new(&portc.pin26);
+    let button2 = Button2::new(&portc.pin27);
+    let button3 = Button3::new(&portc.pin28);
+    led.init();
+    button1.init();
+    button2.init();
+    button3.init();
+    while !button1.is_pushed() {}
     hprintln!("Set LED").unwrap();
-    led::set_led();
+    led.set();
+    while !button2.is_pushed() {}
     hprintln!("Clear LED").unwrap();
-    led::clear_led();
+    led.clear();
+    while !button3.is_pushed() {}
+    hprintln!("Set LED").unwrap();
+    led.set();
 
     systick::init();
 
