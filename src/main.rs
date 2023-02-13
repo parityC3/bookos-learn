@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 #![feature(naked_functions)]
+#![feature(alloc_error_handler)]
 
 use core::arch::asm;
 use core::ptr;
@@ -28,6 +29,30 @@ use port::{Port, PortA, PortC};
 
 mod button;
 use button::{Button1, Button2, Button3};
+
+mod allocator;
+
+extern crate alloc;
+use alloc::alloc::{GlobalAlloc, Layout};
+struct Dummy_Allocator;
+
+unsafe impl GlobalAlloc for Dummy_Allocator {
+    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
+        unimplemented!();
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+        unimplemented!();
+    }
+}
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: Dummy_Allocator = Dummy_Allocator;
+
+#[alloc_error_handler]
+fn alloc_error_handler(_layout: Layout) -> ! {
+    panic!();
+}
 
 const CFSR_ADDR: usize = 0xE000_ED28;
 const SHCSR_ADDR: usize = 0xE000_ED24;
