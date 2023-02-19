@@ -1,4 +1,4 @@
-use core::mem::{align_of, size_of};
+use core::{mem::{align_of, size_of}, alloc::Layout};
 
 struct ListNode {
     size: usize,
@@ -28,6 +28,7 @@ impl SimpleAllocator {
             head: ListNode::new(0)
         }
     }
+
     unsafe fn add_new_node(&mut self, start_addr: usize, size: usize) {
         let end_addr = start_addr + size;
         let aligned_addr = align_addr(start_addr, align_of::<ListNode>());
@@ -42,5 +43,20 @@ impl SimpleAllocator {
         (*new_area_ptr).next = self.head.next.take();
 
         self.head.next = Some(&mut *new_area_ptr);
+    }
+
+    unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
+        let align = layout.align();
+        let size = layout.size();
+        let mut current = &mut self.head;
+
+        // Find empty list from head
+        while let Some(ref mut node) = current.next {
+            let start_addr = node.start_addr();
+        }
+    }
+
+    unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        self.add_new_node(ptr as usize, layout.size());
     }
 }
