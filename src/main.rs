@@ -2,6 +2,7 @@
 #![no_std]
 #![feature(naked_functions)]
 #![feature(alloc_error_handler)]
+#![feature(const_mut_refs)]
 
 use core::arch::asm;
 use core::ptr;
@@ -30,24 +31,14 @@ use port::{Port, PortA, PortC};
 mod button;
 use button::{Button1, Button2, Button3};
 
+mod mutex;
 mod allocator;
 
 extern crate alloc;
-use alloc::alloc::{GlobalAlloc, Layout};
-struct Dummy_Allocator;
-
-unsafe impl GlobalAlloc for Dummy_Allocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        unimplemented!();
-    }
-
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        unimplemented!();
-    }
-}
+use alloc::{alloc::Layout, string::String, format};
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: Dummy_Allocator = Dummy_Allocator;
+static GLOBAL_ALLOCATOR: mutex::Mutex<allocator::SimpleAllocator> = mutex::Mutex::new(allocator::SimpleAllocator::new());
 
 #[alloc_error_handler]
 fn alloc_error_handler(_layout: Layout) -> ! {
@@ -66,6 +57,7 @@ pub unsafe extern "C" fn Reset() -> ! {
         static mut _sidata: u8;
         static mut _sdata: u8;
         static mut _edata: u8;
+        static mut _heap_start: u8;
     }
     let count = &_ebss as *const u8 as usize - &_sbss as *const u8 as usize;
     ptr::write_bytes(&mut _sbss as *mut u8, 0, count);
@@ -74,6 +66,13 @@ pub unsafe extern "C" fn Reset() -> ! {
     ptr::copy_nonoverlapping(&_sidata as *const u8, &mut _sdata as *mut u8, count);
 
     hprintln!("Hello World").unwrap();
+
+    let heap_start_addr = &_heap_start as *const u8 as usize;
+    GLOBAL_ALLOCATOR.lock().add_new_node(heap_start_addr, 1024);
+
+    let str: String = format!("heap start is 0x{:x}", heap_start_addr);
+    hprintln!("{}", str).unwrap();
+    drop(str);
 
     let porta = Port::<PortA>::new();
     let led = LED::new(&porta.pin15);

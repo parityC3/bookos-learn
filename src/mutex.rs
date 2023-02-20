@@ -47,10 +47,11 @@ impl<T> Mutex<T> {
         }
     }
 
-    pub fn lock(&self) {
+    pub fn lock(&self) -> MutexGuard<'_, T> {
         while self.locked.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
 
         }
+        MutexGuard::new(self)
     }
 
     fn unlock(&self) {
